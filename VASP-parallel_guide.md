@@ -301,41 +301,41 @@ The benchmark lasts 500 ionic steps, to obtain sufficient statistics, and is mea
 1.	Baseline on a **full CPU node**
 As there is only 1 k-point, only NCORE is varied.
 
-  | NCORE | NPAR | Elapsed time (s) | efficiency |
-  |---|---|---|---|
-  | 1 | 64 | 87660 | 0.90 |
-  | 2 | 32 | 85956 | 0.91 |
-  | 4 | 16 | 97526 | 0.81 |
-  | 8 | 8 | 101279 | 0.78 |
-  **| 16 | 4 | 78573 | 1 |**
-  | 32 | 2 | 84063 | 0.93 |
-  | 64 | 1 | 97334 | 0.81 |
+    | NCORE | NPAR | Elapsed time (s) | efficiency |
+    |---|---|---|---|
+    | 1 | 64 | 87660 | 0.90 |
+    | 2 | 32 | 85956 | 0.91 |
+    | 4 | 16 | 97526 | 0.81 |
+    | 8 | 8 | 101279 | 0.78 |
+    | **16** | **4** | **78573** | **1** |
+    | 32 | 2 | 84063 | 0.93 |
+    | 64 | 1 | 97334 | 0.81 |
 
 2.	**1 GPU**: optimizing NSIM 
 using 1 task with 16 threads (as there are 16 cores available per GPU in the ampere_gpu partition)
   
-  | NSIM | Elapsed time (s) |
-  |---|---|
-  | 1 | 46801 |
-  | 2 | 29430 |
-  | 4 | 27222 |
-  | 8 | 30432 |
-  **| 16 | 26234 |**
-  | 32 | CUDA OOM |
-  | 64 | CUDA OOM |
+    | NSIM | Elapsed time (s) |
+    |---|---|
+    | 1 | 46801 |
+    | 2 | 29430 |
+    | 4 | 27222 |
+    | 8 | 30432 |
+    | **16** | **26234** |
+    | 32 | CUDA OOM |
+    | 64 | CUDA OOM |
 
-  NSIM is found to be 16. It is not possible to increase NSIM even more on this hardware. Using only 1 GPU is 300% faster than the CPU baseline.
+    NSIM is found to be 16. It is not possible to increase NSIM even more on this hardware. Using only 1 GPU is 300% faster than the CPU baseline.
 
 3.	**Scale #GPUs**
 using #tasks = NPAR = #GPUs with 16 threads per task.
   
-  | #GPUs | Elapsed_time (s) | efficiency |
-  |---|---|---|
-  | 1 | 26526 | 1 |
-  | 2 | 14086 | 0.94 |
-  | 4 | 7805 | 0.85 |
+    | #GPUs | Elapsed_time (s) | efficiency |
+    |---|---|---|
+    | 1 | 26526 | 1 |
+    | 2 | 14086 | 0.94 |
+    | 4 | 7805 | 0.85 |
   
-  A full GPU node is 10x faster than the full CPU node. It clearly demonstrates the advantage of GPU offloading over the CPU-only runs.
+    A full GPU node is 10x faster than the full CPU node. It clearly demonstrates the advantage of GPU offloading over the CPU-only runs.
 
 Despite only relying on NPAR parallelization, efficiency remains high for the full GPU node. This efficiency results allow the user the choice to use either 2 or 4 GPUs per job, depending on the size of the training job (number of ionic steps) and the number of such training jobs (different systems under investigation).
  

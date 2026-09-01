@@ -8,4 +8,4 @@ As Tier1-Hortense will be phased out, the next iteration of this guide will be g
 For those of you already writing an application for compute time **on Tier1-Sofia, I *highly* recommend testing and using the OpenMP build of VASP**.
 
 ### Feedback & Contributions
-If you are an experienced user, I welcome any feedback or additional benchmark examples. Because real-world workflows vary significantly, your specific use case might require a different approach than the ones outlined here. Feel free to open an issue or reach out directly via email.
+If you are an experienced user, I welcome any feedback or additional benchmark examples. By trying to write general recommendations, I may have missed your use case that requires a different approach than the ones outlined here. Feel free to open an issue or reach out directly via email.

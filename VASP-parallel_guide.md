@@ -349,7 +349,7 @@ Despite only relying on NPAR parallelization, efficiency remains high for the fu
 
 IMAGES is used for VASP calculations in different subdirectories, e.g. in a nudged elastic band calculation. You do not need to run scaling tests with this parameter. The slowest converging calculation determines the calculation time.
 
-##### LPLANE
+#### LPLANE
 
 LPLANE defines how data is distributed within the NCORE groups. With LPLANE=True, each core handles the FFT on 2d xy-planes (aka ‘slab decomposition’). With LPLANE=False, each core performs an FFT on a 3d section of the full grid (aka ‘pencil decomposition’). The latter will require more communication but implies a better load balance. 
 
@@ -357,16 +357,16 @@ The default value is LPLANE=True. Though the VASP manual only recommends this wh
 
 If your calculation does not satisfy the above requirements, see if LPLANE=False improves efficiency. Otherwise, you don’t need to investigate this parameter, as it only influences the communication pattern.
 
-##### NSIM
+#### NSIM
 
 NSIM is used in the most common optimization algorithms. (**ALGO=Normal**, “Blocked-Davidson” or **ALGO=Fast**, “RMM-DIIS”). This sets the number of bands that are optimized simultaneously (within the core group with NCORE cores). In the RMM-DIIS algorithm, it allows the use of **matrix-matrix** instead of matrix-vector **operations** in this optimization step. 
 
 No need to optimize this parameter (unless you use VASP-GPU), but you can experiment with it if you use the mentioned optimization algorithms.
 
-##### NOMEGAPAR, NTAUPAR
+#### NOMEGAPAR, NTAUPAR
 
 NOMEGAPAR and NTAUPAR are used in GW and RPA/ACFDT calculations. They define the distribution of imaginary grid-points. NTAUPAR is deduced from MAXMEM, which should automatically be set correctly. You can optimize NOMEGAPAR, though default values are usually reasonable.
 
-##### LUSENCCL
+#### LUSENCCL
 
 LUSENCCL (de)activates NCCL (Nvidia collective communications library). If False, VASP will fall back to MPI-based communication for inter-GPU data exchange.

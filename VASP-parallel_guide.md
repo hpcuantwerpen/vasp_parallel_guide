@@ -161,7 +161,9 @@ Other essential tips to **make sure your tests are consistent**:
 
 Other interesting reads: 
 [2016 Scaling tests BrENIAC](https://dannyvanpoucke.be/scaling-vasp-breniac-en/), [Peter Larsson blog](https://www.nsc.liu.se/~pla/blog/archives/), [energy-to-solution](http://doi.org/10.1007/978-3-319-78054-2_8)
- 
+
+
+
 ## VASP + OpenMP
 
 An OpenMP build becomes interesting when your parallelization is limited by memory constraints. One of the levels of parallelization is replaced by multi-threading instead of multi-processing (MPI tasks). At this parallelization level, the cores share access to the same memory, reducing the number of copies of data in the memory.
@@ -228,6 +230,8 @@ srun -n $SLURM_NTASKS -c $SLURM_CPUS_PER_TASK vasp-executable >> out
 ```
 
 [OpenMP in VASP: Threading and SIMD](https://doi.org/10.1002/qua.25851) 
+
+
 
 ## VASP-GPU
 
@@ -313,7 +317,9 @@ using #tasks = NPAR = #GPUs with 16 threads per task.
     A full GPU node is 10x faster than the full CPU node. It clearly demonstrates the advantage of GPU offloading over the CPU-only runs.
 
 Despite only relying on NPAR parallelization, efficiency remains high for the full GPU node. This efficiency results allow the user the choice to use either 2 or 4 GPUs per job, depending on the size of the training job (number of ionic steps) and the number of such training jobs (different systems under investigation).
- 
+
+
+
 ## —OTHER PARAMETERS—
 
 #### IMAGES

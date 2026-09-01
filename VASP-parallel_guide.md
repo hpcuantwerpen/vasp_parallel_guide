@@ -1,11 +1,12 @@
-## A Guide to Parallelization in VASP
+# A Guide to Parallelization in VASP
 
-### Parameters & Scaling Tests
+## Parameters & Scaling Tests
 
 This guide is intended to aid researchers in performing (and understanding) their scaling tests for a VSC Tier-1 application. Though, understanding parallelism in VASP is essential for all HPC users working with VASP. The guide is based on the VASP manual, my own experience running it on VSC clusters and discussions with the developers at the 2025 VASP workshop. The examples provided are run on the UAntwerpen Tier-2 Vaughan cluster, whose hardware is similar to Tier-1 Hortense and likewise uses the Slurm scheduler.
+
 VASP makes use of distributed memory parallelization with MPI. As of VASP6 OpenMP (shared memory) is supported. More details are provided later.
 
-#### Parameters
+### Parameters
 The parameters that control parallelization in VASP are [VASP wiki]: 
 - IMAGES
 - KPAR 
@@ -50,7 +51,7 @@ Like KPAR, NPAR should be a divisor of the number of bands (NBANDS). However, VA
 
 It is **not advised to maximize NPAR**, because then NCORE=1 or you may end up with too little bands per NPAR-group to offset the communication overhead. Instead, use **scaling tests** to figure out the best variation of NPAR and NCORE, as they are system- and computer-dependent. 
 
-> ##### How do I know how many bands and irreducible k-points my system contains?
+> #### How do I know how many bands and irreducible k-points my system contains?
 >
 > An easy way to figure out the number of k-points, the default number of bands (which you could also calculate from the number of valence electrons for each atom) and other ‘dimension’ parameters, is to perform a **dry-run** [VASP wiki]:
 >
@@ -102,7 +103,7 @@ node   0   1   2   3   4   5   6   7
 
 Looking at the core configuration only, a good NCORE value would be 4 or 8 rather than 16, because in case of the latter, a group of NCORE cores spans over different NUMA domains. You should perform scaling tests to find the optimal values for these parameters, but understanding the hardware of the compute nodes helps you interpret the results of these tests.
  
-#### Scaling tests
+### Scaling tests
 
 Instead of investigating all possible values for the parallelization parameters for all different core counts, which yields a lot of unnecessary calculations, a smarter approach is recommended. **Firstly**, you should **establish a minimal baseline**. Secondly, you should **assess the performance on 1 compute unit**, where you find the appropriate values for KPAR and NCORE. Then you scale up, while keeping the configuration per compute unit similar (i.e. keeping KPAR-per-core fixed and keeping NCORE (and NPAR) fixed).
 
@@ -126,7 +127,7 @@ Other essential tips to **make sure your tests are consistent**:
 -	Use `--switches=1` so that communication between nodes only passes 1 network switch and that this is the same for all your tests.
 -	Use `--nodes=n` rather than `--exclusive` when not using all the cores in a node. The latter will give you more memory per core, possibly making comparison between the calculations unfair.
 
-##### EXAMPLE 1
+#### EXAMPLE 1
 
 *An example is shown in the figures. An SCF calculation was performed on a GaAs supercell on the UAntwerpen Tier-2 Vaughan Zen3 partition. In this case, NBANDS = 256 is chosen because it can nicely be divided by different NPAR values. The number of irreducible k-points = 20 because of the symmetry of the system. This is a relatively small system with enough k-points, so the first approach is followed. Possible values for KPAR are a divisor of #k-points and of the number of cores: KPAR = {1,2,4}. Possible values of NCORE are a divisor of #cores/KPAR and NPAR(=#cores/KPAR/NCORE) is a divisor of NBANDS: NCORE = {1,2,4,8,16(,32(,64))}, depending on KPAR.*
 
@@ -140,7 +141,7 @@ Other essential tips to **make sure your tests are consistent**:
  
 *In this case one should opt to use 1 node, with KPAR=4, NCORE=8 for the production runs. This yields an efficiency of 87% compared to the baseline. 2 Nodes, with KPAR=4, NCORE=8 has an efficiency of 77% and although the time-to-solution would be around 40% faster, the energy-to-solution is higher (it would use 13% more resources), which is not worth it in this case, as the total time for a relaxation calculation will be less than an hour anyway.*
 
-##### EXAMPLE 2
+#### EXAMPLE 2
 
 *Let’s now consider a  large system NaCl with 512 atoms. Such a large supercell requires only 1 k-point, so the gamma-point only VASP executable is used: vasp_gam, which is faster and requires less memory.  An SCF calculation was performed on the UAntwerpen Tier-2 Vaughan Zen3 partition. In this case, there are 2046 valence electrons, therefore NBANDS = 1536 is chosen. Possible values of NCORE are a divisor of #cores, and NPAR(=#cores /NCORE) is a divisor of NBANDS: NCORE = {1,2,4,8,16,32,64}.*
 
@@ -159,15 +160,15 @@ Other essential tips to **make sure your tests are consistent**:
 Other interesting reads: 
 [2016 Scaling tests BrENIAC], [Peter Larsson blog], [energy-to-solution]
  
-### VASP + OpenMP
+## VASP + OpenMP
 
 An OpenMP build becomes interesting when your parallelization is limited by memory constraints. One of the levels of parallelization is replaced by multi-threading instead of multi-processing (MPI tasks). At this parallelization level, the cores share access to the same memory, reducing the number of copies of data in the memory.
 
-> ##### How do I know if my calculation is memory-bound?
+> #### How do I know if my calculation is memory-bound?
 >
 > Memory usage estimation in VASP is quite tricky. The complex parallelization and data distribution, as well as optimizations specific to certain algorithms (and frankly lack of documentation), make it near impossible to properly estimate memory usage. Instead, it is better to recognize out-of-memory issues and understand which parameters affect it and can be reduced to remedy your calculation.
 >
-> ##### Recognize OOM
+> #### Recognize OOM
 >
 > When going out of memory (OOM), the scheduler will typically kill the job (i.e. killed externally) and throw an OOM error in stderr:
 > ```
@@ -184,7 +185,7 @@ An OpenMP build becomes interesting when your parallelization is limited by memo
 >
 > Though, it can also happen that VASP hangs; it doesn’t terminate but shows no progression or no hint at what might be going wrong. If you can’t find another reason after carefully reading the OUTCAR and stderr, it’s likely an out-of-memory issue.
 >
-> ##### Parameters influencing memory usage
+> #### Parameters influencing memory usage
 >
 > The VASP wiki offers a formula for estimating how much memory one needs, however this information is outdated and does not account for parallel usage [VASP wiki]. Nonetheless it shows the most important parameters responsible for memory use. First, storage of wavefunctions is proportional to the number of (irreducible) k-points NKDIM, the number of bands NBANDS and the number of plane waves NPLWV. Secondly, large arrays such as the charge density, local potentials, etc.… are stored, on the (fine) FFT grid. The necessary memory is proportional to the dimensions of this grid: NGXF, NGYF and NGZF. 
 >
@@ -231,7 +232,7 @@ An OpenMP build becomes interesting when your parallelization is limited by memo
 > | 2 | 8 | 4 | 265 | 474 | 366 |
 
 
-> ##### Memory bandwidth 
+> #### Memory bandwidth 
 >
 > On nodes with high core counts (> 64) it is reported that memory bandwidth and cache size can limit parallel efficiency [VASP wiki]. This effect is highly dependent on the node’s architecture, the parallelization parameters and the problem statement. 
 >
@@ -257,11 +258,11 @@ srun -n $SLURM_NTASKS -c $SLURM_CPUS_PER_TASK vasp-executable >> out
 
 [OpenMP in VASP: Threading and SIMD] 
 
-### VASP-GPU
+## VASP-GPU
 
 VASP offers two ports for GPUs: OpenACC (for Nvidia GPUs) and, more recently, OpenMP (for AMD or Intel GPUs) [VASP wiki]. They are similarly structured regarding the parallelization. The main difference is that the OpenACC version has more features implemented for GPU, but your choice is restricted by the available hardware.
 
-#### PARALLELIZATION
+### PARALLELIZATION
 
 It is important to use exactly one MPI rank (‘task’) per GPU. OpenMP threads can be used to leverage more cores for the CPU-side code, allowing you to allocate and use all CPU cores available per GPU.
 
@@ -269,7 +270,7 @@ Distributed parallel FFTs degrade performance when using VASP-GPU, therefore NCO
 
 Default NSIM values are good for CPU-only runs, but for GPU runs they must be tuned. In the RMM-DIIS algorithm, NSIM bands are optimized at the same time. This means that you will perform matrix-matrix operations (NSIM>1) instead of matrix-vector operations (NSIM=1). Ideal values for NSIM are higher for GPU runs than they are for CPU.
 
-#### SCALING TESTS
+### SCALING TESTS
 
 Because GPU nodes are much more expensive than CPU nodes, you will need to prove that your use case properly benefits from GPU resources. This means that you first perform baseline tests with 1 full CPU node.
 
@@ -277,7 +278,7 @@ Because GPU nodes are much more expensive than CPU nodes, you will need to prove
 2.	Find the optimal value for NSIM using 1 GPU with KPAR=1=NPAR. 
 3.	Scale up the number of GPU’s using the largest KPAR value possible (so either KPAR=#GPUS or lower so the KPAR remains a divisor of both #k-points and #tasks) and the optimal value of NSIM.
 
-##### EXAMPLE [Special thanks to Selma Mayda for sharing her benchmark results]
+#### EXAMPLE [Special thanks to Selma Mayda for sharing her benchmark results]
 
 *In this example a molecular dynamics (MD) calculation with on-the-fly machine-learned potentials was performed.*
 
@@ -342,9 +343,9 @@ using #tasks = NPAR = #GPUs with 16 threads per task.
 
 Despite only relying on NPAR parallelization, efficiency remains high for the full GPU node. This efficiency results allow the user the choice to use either 2 or 4 GPUs per job, depending on the size of the training job (number of ionic steps) and the number of such training jobs (different systems under investigation).
  
-### —OTHER PARAMETERS—
+## —OTHER PARAMETERS—
 
-##### IMAGES
+#### IMAGES
 
 IMAGES is used for VASP calculations in different subdirectories, e.g. in a nudged elastic band calculation. You do not need to run scaling tests with this parameter. The slowest converging calculation determines the calculation time.
 

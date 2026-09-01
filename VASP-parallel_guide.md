@@ -4,10 +4,10 @@
 
 This guide is intended to aid researchers in performing (and understanding) their scaling tests for a VSC Tier-1 application. Though, understanding parallelism in VASP is essential for all HPC users working with VASP. The guide is based on the VASP manual, my own experience running it on VSC clusters and discussions with the developers at the 2025 VASP workshop. The examples provided are run on the UAntwerpen Tier-2 Vaughan cluster, whose hardware is similar to Tier-1 Hortense and likewise uses the Slurm scheduler.
 
-VASP makes use of distributed memory parallelization with MPI. As of VASP6 OpenMP (shared memory) is supported. More details are provided later.
+VASP makes use of distributed memory parallelization with MPI. As of VASP6 OpenMP (shared memory) is supported. More details are provided in a later [section](#vasp-openmp).
 
 ### Parameters
-The parameters that control parallelization in VASP are [VASP wiki]: 
+The parameters that control parallelization in VASP are [VASP wiki](https://www.vasp.at/wiki/index.php/Category:Parallelization): 
 - IMAGES
 - KPAR 
 - LPANE 
@@ -18,7 +18,7 @@ The parameters that control parallelization in VASP are [VASP wiki]:
 - NTAUPAR 
 - LUSENCCL 
 
-Out of these, only **KPAR** and **NCORE** are essential. The other parameters are described at the end of this document.
+Out of these, only **KPAR** and **NCORE** are essential. The other parameters are described at the [end of this document](#other-parameter).
 
 The first (or ‘outer’) level of parallelization that VASP offers is distribution of work over k-points. Different **k-points** can be **calculated in parallel**. KPAR defines the number of k-points that are treated in parallel. Thus, the total number of cores are divided in KPAR groups of `N` cores, with `N = #total_cores/KPAR`.
 
@@ -53,7 +53,7 @@ It is **not advised to maximize NPAR**, because then NCORE=1 or you may end up w
 
 > #### How do I know how many bands and irreducible k-points my system contains?
 >
-> An easy way to figure out the number of k-points, the default number of bands (which you could also calculate from the number of valence electrons for each atom) and other ‘dimension’ parameters, is to perform a **dry-run** [VASP wiki]:
+> An easy way to figure out the number of k-points, the default number of bands (which you could also calculate from the number of valence electrons for each atom) and other ‘dimension’ parameters, is to perform a **dry-run** [VASP wiki](https://www.vasp.at/wiki/index.php/Command-line_arguments):
 >
 > ```
 > $ vasp_std --dry-run
@@ -158,9 +158,9 @@ Other essential tips to **make sure your tests are consistent**:
 // FIGURE
 
 Other interesting reads: 
-[2016 Scaling tests BrENIAC], [Peter Larsson blog], [energy-to-solution]
+[2016 Scaling tests BrENIAC](https://dannyvanpoucke.be/scaling-vasp-breniac-en/), [Peter Larsson blog](https://www.nsc.liu.se/~pla/blog/archives/), [energy-to-solution](http://doi.org/10.1007/978-3-319-78054-2_8)
  
-## VASP + OpenMP
+## VASP + OpenMP {#vasp-openmp}
 
 An OpenMP build becomes interesting when your parallelization is limited by memory constraints. One of the levels of parallelization is replaced by multi-threading instead of multi-processing (MPI tasks). At this parallelization level, the cores share access to the same memory, reducing the number of copies of data in the memory.
 
@@ -187,7 +187,7 @@ An OpenMP build becomes interesting when your parallelization is limited by memo
 >
 > #### Parameters influencing memory usage
 >
-> The VASP wiki offers a formula for estimating how much memory one needs, however this information is outdated and does not account for parallel usage [VASP wiki]. Nonetheless it shows the most important parameters responsible for memory use. First, storage of wavefunctions is proportional to the number of (irreducible) k-points NKDIM, the number of bands NBANDS and the number of plane waves NPLWV. Secondly, large arrays such as the charge density, local potentials, etc.… are stored, on the (fine) FFT grid. The necessary memory is proportional to the dimensions of this grid: NGXF, NGYF and NGZF. 
+> The VASP wiki offers a formula for estimating how much memory one needs, however this information is outdated and does not account for parallel usage [VASP wiki](https://www.vasp.at/wiki/index.php/Memory_requirements). Nonetheless it shows the most important parameters responsible for memory use. First, storage of wavefunctions is proportional to the number of (irreducible) k-points NKDIM, the number of bands NBANDS and the number of plane waves NPLWV. Secondly, large arrays such as the charge density, local potentials, etc.… are stored, on the (fine) FFT grid. The necessary memory is proportional to the dimensions of this grid: NGXF, NGYF and NGZF. 
 >
 > Parallelization has a large impact on the memory requirements, especially the KPAR parameter. When you double both KPAR and the number of tasks, you double the required memory, i.e. the mem-per-task remains the same. Doubling KPAR while decreasing NPAR or NCORE increases the mem-per-task. When you double either NPAR or NCORE and the number of tasks, the total memory requirement is still increased, but the mem-per-task is reduced. Increasing NPAR while decreasing NCORE has no impact on the memory needs.
 > 
@@ -234,7 +234,7 @@ An OpenMP build becomes interesting when your parallelization is limited by memo
 
 > #### Memory bandwidth 
 >
-> On nodes with high core counts (> 64) it is reported that memory bandwidth and cache size can limit parallel efficiency [VASP wiki]. This effect is highly dependent on the node’s architecture, the parallelization parameters and the problem statement. 
+> On nodes with high core counts (> 64) it is reported that memory bandwidth and cache size can limit parallel efficiency [VASP wiki](https://vasp.at/wiki/Combining_MPI_and_OpenMP). This effect is highly dependent on the node’s architecture, the parallelization parameters and the problem statement. 
 >
 > -	In the pure MPI version of VASP, do you experience a speed-up if you only use 75% (or even 50%) of the number of cores per node? Beware of task placement. 
 >   This indicates that memory bandwidth may be a limitation.
@@ -256,11 +256,11 @@ export OMP_STACKSIZE=512m	# VASP needs more (than the default) memory in the pri
 srun -n $SLURM_NTASKS -c $SLURM_CPUS_PER_TASK vasp-executable >> out
 ```
 
-[OpenMP in VASP: Threading and SIMD] 
+[OpenMP in VASP: Threading and SIMD](https://doi.org/10.1002/qua.25851) 
 
 ## VASP-GPU
 
-VASP offers two ports for GPUs: OpenACC (for Nvidia GPUs) and, more recently, OpenMP (for AMD or Intel GPUs) [VASP wiki]. They are similarly structured regarding the parallelization. The main difference is that the OpenACC version has more features implemented for GPU, but your choice is restricted by the available hardware.
+VASP offers two ports for GPUs: OpenACC (for Nvidia GPUs) and, more recently, OpenMP (for AMD or Intel GPUs) [VASP wiki](https://www.vasp.at/wiki/index.php/OpenACC_GPU_port_of_VASP#Running_the_OpenACC_version). They are similarly structured regarding the parallelization. The main difference is that the OpenACC version has more features implemented for GPU, but your choice is restricted by the available hardware.
 
 ### PARALLELIZATION
 
@@ -343,7 +343,7 @@ using #tasks = NPAR = #GPUs with 16 threads per task.
 
 Despite only relying on NPAR parallelization, efficiency remains high for the full GPU node. This efficiency results allow the user the choice to use either 2 or 4 GPUs per job, depending on the size of the training job (number of ionic steps) and the number of such training jobs (different systems under investigation).
  
-## —OTHER PARAMETERS—
+## —OTHER PARAMETERS— {#other-parameters}
 
 #### IMAGES
 

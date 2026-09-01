@@ -300,18 +300,20 @@ The benchmark lasts 500 ionic steps, to obtain sufficient statistics, and is mea
  
 1.	Baseline on a **full CPU node**
 As there is only 1 k-point, only NCORE is varied.
-| NCORE | NPAR | Elapsed time (s) | efficiency |
-|---|---|---|---|
-| 1 | 64 | 87660 | 0.90 |
-| 2 | 32 | 85956 | 0.91 |
-| 4 | 16 | 97526 | 0.81 |
-| 8 | 8 | 101279 | 0.78 |
-**| 16 | 4 | 78573 | 1 |**
-| 32 | 2 | 84063 | 0.93 |
-| 64 | 1 | 97334 | 0.81 |
+
+  | NCORE | NPAR | Elapsed time (s) | efficiency |
+  |---|---|---|---|
+  | 1 | 64 | 87660 | 0.90 |
+  | 2 | 32 | 85956 | 0.91 |
+  | 4 | 16 | 97526 | 0.81 |
+  | 8 | 8 | 101279 | 0.78 |
+  **| 16 | 4 | 78573 | 1 |**
+  | 32 | 2 | 84063 | 0.93 |
+  | 64 | 1 | 97334 | 0.81 |
 
 2.	**1 GPU**: optimizing NSIM 
 using 1 task with 16 threads (as there are 16 cores available per GPU in the ampere_gpu partition)
+  
   | NSIM | Elapsed time (s) |
   |---|---|
   | 1 | 46801 |
@@ -322,10 +324,11 @@ using 1 task with 16 threads (as there are 16 cores available per GPU in the amp
   | 32 | CUDA OOM |
   | 64 | CUDA OOM |
 
-NSIM is found to be 16. It is not possible to increase NSIM even more on this hardware. Using only 1 GPU is 300% faster than the CPU baseline.
+  NSIM is found to be 16. It is not possible to increase NSIM even more on this hardware. Using only 1 GPU is 300% faster than the CPU baseline.
 
 3.	**Scale #GPUs**
 using #tasks = NPAR = #GPUs with 16 threads per task.
+  
   | #GPUs | Elapsed_time (s) | efficiency |
   |---|---|---|
   | 1 | 26526 | 1 |

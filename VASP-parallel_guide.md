@@ -281,11 +281,14 @@ Because GPU nodes are much more expensive than CPU nodes, you will need to prove
 > The underlying workflow consists of three different computational steps:
 >
 > 1.	**MLFF prediction & uncertainty estimation**: based on ML forcefields, VASP predicts forces, energies and stress. It also estimates the accuracy of the prediction.
->   This step relies on task-based parallelism.
+>
+>     This step relies on task-based parallelism.
 > 2.	**Standard DFT execution**: when the accuracy of the MLFF prediction is too low, VASP triggers a full DFT calculation. The resulting atomic configurations, forces and energies are written to the training database (ML_AB)
->   This step leverages GPU-offloading (with the known KPAR and NPAR parallelization)
+>
+>     This step leverages GPU-offloading (with the known KPAR and NPAR parallelization)
 > 3.	**MLFF fitting & retraining**: once sufficient new reference configurations are added to the database, VASP retrains and fits the potential
->   This step relies on shared-memory CPU multi-threading via BLAS/LAPACK
+>
+>     This step relies on shared-memory CPU multi-threading via BLAS/LAPACK
 >
 > Upon completing either a fast ML prediction or a full DFT step, VASP updates the atomic position and starts the next ionic step.
 >

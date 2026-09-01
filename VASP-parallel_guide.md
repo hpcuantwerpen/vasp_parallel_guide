@@ -62,14 +62,14 @@ It is **not advised to maximize NPAR**, because then NCORE=1 or you may end up w
 >
 > ```
 > $ grep -A 12 'Dimension of arrays' OUTCAR
-> \> Dimension of arrays:
->    k-points           NKPTS =     20   k-points in BZ     **NKDIM =     20**   number of bands    **NBANDS=    161**
+> > Dimension of arrays:
+>    k-points           NKPTS =     20   k-points in BZ     NKDIM =     20   number of bands    NBANDS=    161
 >    number of dos      NEDOS =    301   number of ions     NIONS =     64
 >    non local maximal  LDIM  =      5   non local SUM 2l+1 LMDIM =     13
->    total plane-waves  **NPLWV = 175616**
+>    total plane-waves  NPLWV = 175616
 >    max r-space proj   IRMAX =      1   max aug-charges    IRDMAX=   8497
 >    dimension x,y,z NGX =    56 NGY =   56 NGZ =   56
->    dimension x,y,z **NGXF=   112 NGYF=  112 NGZF=  112**
+>    dimension x,y,z NGXF=   112 NGYF=  112 NGZF=  112
 >    support grid    NGXF=   112 NGYF=  112 NGZF=  112
 >    ions per type =              32  32
 >    NGX,Y,Z   is equivalent  to a cutoff of   8.10,  8.10,  8.10 a.u.
@@ -102,18 +102,18 @@ node   0   1   2   3   4   5   6   7
 
 Looking at the core configuration only, a good NCORE value would be 4 or 8 rather than 16, because in case of the latter, a group of NCORE cores spans over different NUMA domains. You should perform scaling tests to find the optimal values for these parameters, but understanding the hardware of the compute nodes helps you interpret the results of these tests.
  
-#### caling tests
+#### Scaling tests
 
 Instead of investigating all possible values for the parallelization parameters for all different core counts, which yields a lot of unnecessary calculations, a smarter approach is recommended. **Firstly**, you should **establish a minimal baseline**. Secondly, you should **assess the performance on 1 compute unit**, where you find the appropriate values for KPAR and NCORE. Then you scale up, while keeping the configuration per compute unit similar (i.e. keeping KPAR-per-core fixed and keeping NCORE (and NPAR) fixed).
 
 The recommended approach (if you have **sufficient k-points**) would be:
 1.	Start with 1 core with the default parameters `KPAR=NCORE=1`, `NPAR=#cores`. If the run fails (due to out-of-memory errors or the 3-day walltime), double the core count until the calculation succeeds. As soon as `#cores>NUMA_domain`, start increasing NCORE as well. This calculation forms your baseline.
-2.	Investigate all possible KPAR and NCORE values using 1 compute unit. The size of this compute unit is up to you to decide: if you are planning to use multiple nodes for your production runs, go for a compute unit equal to a socket or a full node, if on the other hand, you plan to use less than a node for your runs, choose a NUMA domain or a socket as your compute unit[^1]. You want the compute unit to be larger than your baseline and to be able to test an appropriate range in parallelization parameters. 
+2.	Investigate all possible KPAR and NCORE values using 1 compute unit. The size of this compute unit is up to you to decide: if you are planning to use multiple nodes for your production runs, go for a compute unit equal to a socket or a full node, if on the other hand, you plan to use less than a node for your runs, choose a NUMA domain or a socket as your compute unit[^]. You want the compute unit to be larger than your baseline and to be able to test an appropriate range in parallelization parameters. 
 3.	Vary the number of cores with the best values from step 2. You want NPAR and NCORE to stay fixed, thus KPAR-per-core should remain the same. Remember to scale down if possible (i.e. less than a full compute unit). 
 4.	[optional] Step 2 is typically severely limited by the number of k-points and how well KPAR-per-unit divides the number of k-points. If needed, repeat step 2 with a lower KPAR-per-core value. This way you can use a different number of cores in your calculation that was not compatible with the previous KPAR-per-core value. 
 (note, it is possible that by doing this, KPAR-per-unit<1. In this case, I would recommend checking the ideal values for NCORE and NPAR again, using KPAR=1, and the larger compute unit)
 
-> **[^1] Footnote:** you are also free to choose a compute unit consisting of an odd number of cores to accommodate an odd/prime number of k-points. This will require proper task-placement and falls outside the scope of the current guide; contact user support if you’d need assistance with this.
+> **[^] Footnote:** you are also free to choose a compute unit consisting of an odd number of cores to accommodate an odd/prime number of k-points. This will require proper task-placement and falls outside the scope of the current guide; contact user support if you’d need assistance with this.
 
 ALTERNATIVE: if you have a large system with **very little or only 1 k-point**, you will have to rely on NPAR parallelization.
 1.	Step 1 and 2 remains the same. You want to find a baseline and the ideal NCORE value.
@@ -274,7 +274,6 @@ Because GPU nodes are much more expensive than CPU nodes, you will need to prove
 2.	Find the optimal value for NSIM using 1 GPU with KPAR=1=NPAR. 
 3.	Scale up the number of GPU’s using the largest KPAR value possible (so either KPAR=#GPUS or lower so the KPAR remains a divisor of both #k-points and #tasks) and the optimal value of NSIM.
 
- 
 ##### EXAMPLE [Special thanks to Selma Mayda for sharing her benchmark results]
 
 *In this example a molecular dynamics (MD) calculation with on-the-fly machine-learned potentials was performed.*
@@ -301,7 +300,6 @@ The benchmark lasts 500 ionic steps, to obtain sufficient statistics, and is mea
  
 1.	Baseline on a **full CPU node**
 As there is only 1 k-point, only NCORE is varied.
-
 | NCORE | NPAR | Elapsed time (s) | efficiency |
 |---|---|---|---|
 | 1 | 64 | 87660 | 0.90 |
@@ -314,29 +312,27 @@ As there is only 1 k-point, only NCORE is varied.
 
 2.	**1 GPU**: optimizing NSIM 
 using 1 task with 16 threads (as there are 16 cores available per GPU in the ampere_gpu partition)
-
-| NSIM | Elapsed time (s) |
-|---|---|
-| 1 | 46801 |
-| 2 | 29430 |
-| 4 | 27222 |
-| 8 | 30432 |
-**| 16 | 26234 |**
-| 32 | CUDA OOM |
-| 64 | CUDA OOM |
+  | NSIM | Elapsed time (s) |
+  |---|---|
+  | 1 | 46801 |
+  | 2 | 29430 |
+  | 4 | 27222 |
+  | 8 | 30432 |
+  **| 16 | 26234 |**
+  | 32 | CUDA OOM |
+  | 64 | CUDA OOM |
 
 NSIM is found to be 16. It is not possible to increase NSIM even more on this hardware. Using only 1 GPU is 300% faster than the CPU baseline.
 
 3.	**Scale #GPUs**
 using #tasks = NPAR = #GPUs with 16 threads per task.
-
-| #GPUs | Elapsed_time (s) | efficiency |
-|---|---|---|
-| 1 | 26526 | 1 |
-| 2 | 14086 | 0.94 |
-| 4 | 7805 | 0.85 |
-
-A full GPU node is 10x faster than the full CPU node. It clearly demonstrates the advantage of GPU offloading over the CPU-only runs.
+  | #GPUs | Elapsed_time (s) | efficiency |
+  |---|---|---|
+  | 1 | 26526 | 1 |
+  | 2 | 14086 | 0.94 |
+  | 4 | 7805 | 0.85 |
+  
+  A full GPU node is 10x faster than the full CPU node. It clearly demonstrates the advantage of GPU offloading over the CPU-only runs.
 
 Despite only relying on NPAR parallelization, efficiency remains high for the full GPU node. This efficiency results allow the user the choice to use either 2 or 4 GPUs per job, depending on the size of the training job (number of ionic steps) and the number of such training jobs (different systems under investigation).
  

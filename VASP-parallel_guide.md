@@ -4,7 +4,7 @@
 
 This guide is intended to aid researchers in performing (and understanding) their scaling tests for a VSC Tier-1 application. Though, understanding parallelism in VASP is essential for all HPC users working with VASP. The guide is based on the VASP manual, my own experience running it on VSC clusters and discussions with the developers at the 2025 VASP workshop. The examples provided are run on the UAntwerpen Tier-2 Vaughan cluster, whose hardware is similar to Tier-1 Hortense and likewise uses the Slurm scheduler.
 
-VASP makes use of distributed memory parallelization with MPI. As of VASP6 OpenMP (shared memory) is supported. More details are provided in a later [section](#vasp-openmp).
+VASP makes use of distributed memory parallelization with MPI. As of VASP6 OpenMP (shared memory) is supported. More details are provided in a later [section](#vasp--openmp).
 
 ### Parameters
 The parameters that control parallelization in VASP are [VASP wiki](https://www.vasp.at/wiki/index.php/Category:Parallelization): 
@@ -18,7 +18,7 @@ The parameters that control parallelization in VASP are [VASP wiki](https://www.
 - NTAUPAR 
 - LUSENCCL 
 
-Out of these, only **KPAR** and **NCORE** are essential. The other parameters are described at the [end of this document](#other-parameter).
+Out of these, only **KPAR** and **NCORE** are essential. The other parameters are described at the [end of this document](#other-parameters).
 
 The first (or ‘outer’) level of parallelization that VASP offers is distribution of work over k-points. Different **k-points** can be **calculated in parallel**. KPAR defines the number of k-points that are treated in parallel. Thus, the total number of cores are divided in KPAR groups of `N` cores, with `N = #total_cores/KPAR`.
 
@@ -160,7 +160,7 @@ Other essential tips to **make sure your tests are consistent**:
 Other interesting reads: 
 [2016 Scaling tests BrENIAC](https://dannyvanpoucke.be/scaling-vasp-breniac-en/), [Peter Larsson blog](https://www.nsc.liu.se/~pla/blog/archives/), [energy-to-solution](http://doi.org/10.1007/978-3-319-78054-2_8)
  
-## VASP + OpenMP {#vasp-openmp}
+## VASP + OpenMP
 
 An OpenMP build becomes interesting when your parallelization is limited by memory constraints. One of the levels of parallelization is replaced by multi-threading instead of multi-processing (MPI tasks). At this parallelization level, the cores share access to the same memory, reducing the number of copies of data in the memory.
 
@@ -343,7 +343,7 @@ using #tasks = NPAR = #GPUs with 16 threads per task.
 
 Despite only relying on NPAR parallelization, efficiency remains high for the full GPU node. This efficiency results allow the user the choice to use either 2 or 4 GPUs per job, depending on the size of the training job (number of ionic steps) and the number of such training jobs (different systems under investigation).
  
-## —OTHER PARAMETERS— {#other-parameters}
+## —OTHER PARAMETERS—
 
 #### IMAGES
 

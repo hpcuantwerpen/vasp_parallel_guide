@@ -30,13 +30,13 @@ Note that there is no memory distribution over KPAR: increasing this parameter w
 
 *An example is shown in the figure: VASP is launched with 32 cores. These cores are split into 4 groups (KPAR=4) of 8 cores. Each of these groups will work on #kpoints/4 k-points, one at a time. Every k-point group is further divided into 2 groups (NPAR=2). Each of these groups will work on NBANDS/2 bands. We are left with groups of 4 cores (therefore, NCORE=4). Each of these 4 cores will handle a subset of the plane wave coefficients for the given band and k-point.*
 
-// FIGURE
+![parallel](/figures/processes.png)
  
 Optimal values for these parameters are system-dependent, you therefore need to perform scaling tests and investigate which values lead to efficient use of the available HPC infrastructure. General rules of thumb are outlined here with considerations regarding the topology of the compute nodes.
 
 As KPAR divides the k-points of the calculation in groups, KPAR is optimally chosen as a divisor of the number of k-points. This ensures a **correct load balance**, as all KPAR groups work on an equal number of k-points.
  
- //FIGURE
+![kpar](/figures/loadbalancing.png)
 
 *Visualization of bad (left, KPAR=3) and good (right, KPAR=4) load balancing with 4 k-points.*
 
@@ -83,7 +83,7 @@ To optimize the parallelization parameters, you should also keep the architectur
 
 Let’s look at the architecture of the UA tier-2 Vaughan CPUs (both zen2 and zen3 AMD EPYC 7452 & 7543). Each node has 2 sockets (grey) hosting an AMD EPYC processor with 32 cores each, forming the first level of the memory hierarchy. Each socket consists of 4 NUMA nodes (light pink), each with 8 cores (black) and two memory controllers. 
 
-// FIGURE
+![NUMA](/figures/zen2architecture.png)
 
 The distances between the NUMA nodes are displayed as follows, where you can see that NUMA nodes 0-3 and 4-7 are on different sockets, because the distance is much larger.
 
@@ -133,11 +133,12 @@ Other essential tips to **make sure your tests are consistent**:
 
 *According to the first figure, the ideal values on 1 node (64 cores) are KPAR=4 and NCORE=8. It should not surprise you that NCORE is equal to the number of cores in the NUMA domain.*
 
-// FIGURE
+![GaAs1node](/figures/GaAs1node.png)
 
 *The next two graphs show the combination of steps 1, 2 and 3: the green datapoint is the baseline on 1 core, the most ideal NCORE and KPAR/node combination yields the orange datapoints. The blue datapoints are always less efficient, as expected from the behavior on 1 node, but they are compatible with node-counts 2 and 10.*
   
-// FIGURES
+![GaAs-timing](/figures/GaAs-timing.png)
+![GaAs-efficiency](/figures/GaAs-efficiency.png)
  
 *In this case one should opt to use 1 node, with KPAR=4, NCORE=8 for the production runs. This yields an efficiency of 87% compared to the baseline. 2 Nodes, with KPAR=4, NCORE=8 has an efficiency of 77% and although the time-to-solution would be around 40% faster, the energy-to-solution is higher (it would use 13% more resources), which is not worth it in this case, as the total time for a relaxation calculation will be less than an hour anyway.*
 
@@ -147,15 +148,16 @@ Other essential tips to **make sure your tests are consistent**:
 
 *The following graphs show the results of the benchmark using all possible NCORE values (starting from 1 full node). For a Tier1 application, these are many unnecessary calculations, but the graphs nicely illustrate how the ideal NCORE value changes with the number of nodes used.*
 
-// FIGURE
+![NaCl-timing](/figures/NaCl-timing.png)
   
 *In this case, doubling the number of cores, the ideal NCORE value doubles as well. You will not obtain better performance by lowering NCORE, hence the blue and yellow points in the graph do not need to be calculated in step 3, after you excluded them in step 2. You can even remove NCORE values lower than the ideal NCORE for a given core-count in subsequent core-counts.*
 
 *The communication overhead in the case of NCORE=1 becomes so important with increasing NPAR that the computation time increases despite throwing more resources at the problem. (only 2 bands per core using #cores=768, NCORE=1)*
 
+![NaCl-efficiency](/figures/NaCl-efficiency.png)
+
 *Note that these examples using regular DFT are relatively small. Therefore, they do not scale very well beyond a few nodes, nor are they limited by memory.*
- 
-// FIGURE
+
 
 Other interesting reads: 
 [2016 Scaling tests BrENIAC](https://dannyvanpoucke.be/scaling-vasp-breniac-en/), [Peter Larsson blog](https://www.nsc.liu.se/~pla/blog/archives/), [energy-to-solution](http://doi.org/10.1007/978-3-319-78054-2_8)
@@ -198,39 +200,8 @@ An OpenMP build becomes interesting when your parallelization is limited by memo
 >   `Maximum memory used \(kb\):\s+(\S+)\.`
 > -	RSS_ave: the resident set size averaged per task according to slurm:
 >   `sacct -o AveRSS,MaxRSS -j <jobid>`
-> **ntasks = 16 (MiB)**
->
-> | KPAR | NPAR | NCORE | MEM_est | MEM_max | RSS_ave |
-> |---|---|---|---|---|---|
-> | 1 | 1 | 16 | 339 | 588 | 505 |
-> | 1 | 2 | 8 | 339 | 584 | 505 |
-> | 1 | 8 | 2 | 339 | 585 | 505 |
-> | 2 | 1 | 8 | 489 | 735 | 664 |
-> | 2 | 2 | 4 | 489 | 732 | 666 |
-> | 2 | 8 | 1 | 489 | 731 | 664 |
->
-> **ntasks = 32 (MiB)**
->
-> | KPAR | NPAR | NCORE | MEM_est | MEM_max | RSS_ave |
-> |---|---|---|---|---|---|
-> | 1 | 1 | 32 | 265 | 539 | 434 |
-> | 1 | 2 | 16 | 265 | 541 | 434 |
-> | 1 | 8 | 4 | 265 | 552 | 434 |
-> | 2 | 1 | 16 | 339 | 588 | 506 |
-> | 2 | 2 | 8 | 339 | 589 | 505 |
-> | 2 | 8 | 2 | 339 | 588 | 505 |
->
-> **ntasks = 64 (MiB)**
->
-> | KPAR | NPAR | NCORE | MEM_est | MEM_max | RSS_ave |
-> |---|---|---|---|---|---|
-> | 1 | 1 | 64 | 227 | 454 | 334 |
-> | 1 | 2 | 32 | 227 | 455 | 333 |
-> | 1 | 8 | 8 | 227 | 460 | 333 |
-> | 2 | 1 | 32 | 265 | 474 | 367 |
-> | 2 | 2 | 16 | 265 | 469 | 367 |
-> | 2 | 8 | 4 | 265 | 474 | 366 |
-
+> ![memory](/figures/memory.png)
+> 
 
 > #### Memory bandwidth 
 >

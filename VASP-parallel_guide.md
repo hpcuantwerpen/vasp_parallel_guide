@@ -159,7 +159,7 @@ Also test smaller configurations when possible. A calculation that performs well
 
 The number of useful KPAR values is often restricted by the number of irreducible k-points. For example, if the calculation has only 20 irreducible k-points, values such as KPAR = 1, 2, 4, 5, 10, 20 are possible from a load-balancing perspective, whereas many other values would distribute the k-points unevenly.
 
-If the preferred KPAR-per-compute-unit ratio is incompatible with the number of k-points, repeat Step 2 using a smaller ratio. This may allow additional core counts or node counts to be tested while preserving a balanced distribution of k-points.
+If the preferred KPAR-per-compute-unit ratio is incompatible with the number of k-points, repeat Step 3 using a smaller ratio. This may allow additional core counts or node counts to be tested while preserving a balanced distribution of k-points.
 In some cases, this procedure may lead to fewer than one KPAR group per compute unit. This is not necessarily a problem: several compute units may then cooperate on the same k-point group. However, when this happens, re-evaluate NCORE and NPAR with KPAR = 1 on the larger compute unit, because the optimal balance between band parallelization and communication may have changed.
 
 > **Note**: If the number of irreducible k-points is odd or prime, it may be useful to define a compute unit containing an unusual number of cores so that KPAR remains compatible with the available k-points. This requires careful MPI task placement and is outside the scope of this guide. Contact user support if assistance is required.

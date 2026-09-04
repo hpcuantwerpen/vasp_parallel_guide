@@ -105,37 +105,115 @@ Looking at the core configuration only, a good NCORE value would be 4 or 8 rathe
  
 ### Scaling tests
 
-Instead of investigating all possible values for the parallelization parameters for all different core counts, which yields a lot of unnecessary calculations, a smarter approach is recommended. **Firstly**, you should **establish a minimal baseline**. Secondly, you should **assess the performance on 1 compute unit**, where you find the appropriate values for KPAR and NCORE. Then you scale up, while keeping the configuration per compute unit similar (i.e. keeping KPAR-per-core fixed and keeping NCORE (and NPAR) fixed).
+#### Recommended scaling strategy
 
-The recommended approach (if you have **sufficient k-points**) would be:
-1.	Start with 1 core with the default parameters `KPAR=NCORE=1`, `NPAR=#cores`. If the run fails (due to out-of-memory errors or the 3-day walltime), double the core count until the calculation succeeds. As soon as `#cores>NUMA_domain`, start increasing NCORE as well. This calculation forms your baseline.
-2.	Investigate all possible KPAR and NCORE values using 1 compute unit. The size of this compute unit is up to you to decide: if you are planning to use multiple nodes for your production runs, go for a compute unit equal to a socket or a full node, if on the other hand, you plan to use less than a node for your runs, choose a NUMA domain or a socket as your compute unit[^]. You want the compute unit to be larger than your baseline and to be able to test an appropriate range in parallelization parameters. 
-3.	Vary the number of cores with the best values from step 2. You want NPAR and NCORE to stay fixed, thus KPAR-per-core should remain the same. Remember to scale down if possible (i.e. less than a full compute unit). 
-4.	[optional] Step 2 is typically severely limited by the number of k-points and how well KPAR-per-unit divides the number of k-points. If needed, repeat step 2 with a lower KPAR-per-core value. This way you can use a different number of cores in your calculation that was not compatible with the previous KPAR-per-core value. 
-(note, it is possible that by doing this, KPAR-per-unit<1. In this case, I would recommend checking the ideal values for NCORE and NPAR again, using KPAR=1, and the larger compute unit)
+Testing every possible combination of parallelization parameters for every core count would require many unnecessary calculations. A more efficient strategy is to separate the optimization into two stages:
 
-> **[^] Footnote:** you are also free to choose a compute unit consisting of an odd number of cores to accommodate an odd/prime number of k-points. This will require proper task-placement and falls outside the scope of the current guide; contact user support if you’d need assistance with this.
+1.	Optimize the parallelization within one compute unit.
+2.	Scale the optimized configuration to larger and smaller core counts.
+   
+Here, a *compute unit* is a hardware unit within which communication is relatively fast. Depending on the intended production runs, it may be a NUMA domain, a socket, or a complete compute node. A compute unit is not a VASP-specific concept; it is a reference hardware unit selected for the scaling study.
 
-ALTERNATIVE: if you have a large system with **very little or only 1 k-point**, you will have to rely on NPAR parallelization.
-1.	Step 1 and 2 remains the same. You want to find a baseline and the ideal NCORE value.
-3.	You will not be able to increase KPAR with the number of compute units. Use your largest possible KPAR value and use the ideal NCORE value from step 2 as the minimum value for NCORE. This ideal NCORE value from step 2 will generally be a good choice, but as you increase the number of cores, NPAR will do so as well. Eventually there is not sufficient work (NBANDS) for each NPAR group to outperform the communication overhead, hence if you balance the increase of NPAR and NCORE, you can squeeze out maximum efficiency. 
+The general idea is to determine the best values of KPAR and NCORE on one compute unit, and then preserve this configuration as the calculation is scaled. In particular, NCORE and NPAR should remain unchanged whenever possible, while the number of KPAR groups should increase proportionally with the number of compute units.
 
-Other essential tips to **make sure your tests are consistent**:
--	Use the timings written in the OUTCAR for LOOP+ (use NELM=15 to limit the number of electronic steps and therefore the time needed). 
--	Always explicitly write NBANDS in the INCAR. Choose a value that is compatible with all NPAR values you’re testing. NBANDS needs to be the same for all your tests.
--	Always explicitly specify the partition you want to use: `--partition=<partition>`
--	Use `--switches=1` so that communication between nodes only passes 1 network switch and that this is the same for all your tests.
--	Use `--nodes=n` rather than `--exclusive` when not using all the cores in a node. The latter will give you more memory per core, possibly making comparison between the calculations unfair.
+This approach assumes that the calculation contains enough irreducible k-points to increase KPAR.
+
+##### Step 1: Establish a baseline
+
+Start with the smallest number of cores that is likely to run the calculation, with default parallelization parameters: `KPAR = 1`, `NCORE = 1`, `NPAR  = number of MPI ranks`.
+
+If the calculation fails because of insufficient memory or exceeds the wall-time limit, increase the number of cores, preferably by doubling it, until the calculation completes successfully.
+
+Once the number of MPI ranks exceeds the size of one NUMA domain, increase NCORE as well. This avoids creating many band-parallel groups with NCORE = 1, which may lead to inefficient communication patterns.
+
+The fastest successful configuration obtained in this way is used as the baseline for calculating parallel efficiency.
+
+##### Step 2: Optimize one compute unit
+
+Choose one compute unit that is representative of the intended production runs:
+- Use one NUMA domain if production runs will use only part of a node.
+-	Use one socket if production runs will use approximately one socket.
+-	Use one complete node if production runs will use several nodes.
+
+The chosen compute unit should be larger than the baseline configuration and should provide enough cores to test a meaningful range of KPAR and NCORE values.
+
+Run the calculation with all possible combinations of:
+-	KPAR, a divisor of both the number of irreducible k-points and available cores.
+-	NCORE, a divisor of the number of bands and of `N_cores/KAPR`
+-	NPAR, determined from: `NPAR=N_cores/(KPAR×NCORE)`
+
+The best configuration on this compute unit provides the values of NCORE and NPAR, as well as the most appropriate number of k-point groups per compute unit.
+
+##### Step 3: Scale the optimized configuration
+
+Increase and decrease the number of cores using the best configuration found in Step 2.
+Keep NCORE and NPAR fixed whenever possible.
+
+To preserve this configuration, increase KPAR when increasing the number of compute units. In other words, the number of k-point groups should scale approximately with the number of compute units, while the internal parallelization of each group remains unchanged.
+
+For example, if one compute unit performs best with four KPAR groups, two equivalent compute units should preferably use eight groups, provided that the number of irreducible k-points allows this choice.
+
+Also test smaller configurations when possible. A calculation that performs well on one compute unit may not require the full unit, and using fewer cores can reduce resource consumption without significantly increasing the time to solution.
+
+##### Step 4: Adapt the strategy when k-points are limited
+
+The number of useful KPAR values is often restricted by the number of irreducible k-points. For example, if the calculation has only 20 irreducible k-points, values such as KPAR = 1, 2, 4, 5, 10, 20 are possible from a load-balancing perspective, whereas many other values would distribute the k-points unevenly.
+
+If the preferred KPAR-per-compute-unit ratio is incompatible with the number of k-points, repeat Step 2 using a smaller ratio. This may allow additional core counts or node counts to be tested while preserving a balanced distribution of k-points.
+In some cases, this procedure may lead to fewer than one KPAR group per compute unit. This is not necessarily a problem: several compute units may then cooperate on the same k-point group. However, when this happens, re-evaluate NCORE and NPAR with KPAR = 1 on the larger compute unit, because the optimal balance between band parallelization and communication may have changed.
+
+> **Note**: If the number of irreducible k-points is odd or prime, it may be useful to define a compute unit containing an unusual number of cores so that KPAR remains compatible with the available k-points. This requires careful MPI task placement and is outside the scope of this guide. Contact user support if assistance is required.
+
+#### Alternative strategy for calculations with few k-points
+
+For large systems with only a few irreducible k-points (especially gamma-point-only calculations) there is limited opportunity for k-point parallelization. In this situation, performance depends mainly on the balance between band parallelization (NPAR) and the number of cores cooperating on each band (NCORE).
+
+The following procedure is recommended.
+
+##### Step 1. Establish a baseline
+Exactly the same as above. Start with the smallest number of cores on which the calculation is expected to complete successfully. Use the default parallelization parameters.
+
+If the calculation fails because of insufficient memory or exceeds the wall-time limit, increase the number of cores, preferably by doubling it, until the calculation completes successfully.
+
+The fastest successful configuration obtained in this way is used as the baseline for calculating parallel efficiency.
+
+##### Step 2. Determine a suitable NCORE value
+
+Use one representative compute unit for this initial optimization. Depending on the intended production runs, this may be one NUMA domain, one socket, or one complete node.
+
+Test all possible KPAR, NCORE and NPAR combinations, keeping in mind the constraints due to the number of core, irreducible k-points and bands.
+
+The best configuration on this compute unit provides ideal values of NCORE and NPAR, as well as the most appropriate number of k-point groups per compute unit.
+
+##### Step 3. Scale to larger core counts
+
+For calculations with few k-points, KPAR usually cannot be increased in proportion to the number of compute units. Once the maximum useful value of KPAR has been reached, additional cores are used mainly for band parallelization.
+
+Use the optimal NCORE value identified in Step 2 as the starting point. If KPAR and NCORE remain fixed, increasing the number of cores increases NPAR according to: `NPAR=N_cores/(KPAR×NCORE)`.
+However, increasing NPAR does not always improve performance. As NPAR increases, fewer bands are assigned to each parallel group. Once there are too few bands per group, communication and synchronization overhead may outweigh the benefit of using additional cores.
+
+For this reason, repeat the scaling tests with larger NCORE values when necessary. Increasing NCORE reduces NPAR and may provide a better balance between computation, memory distribution, and communication.
+The objective is not to maximize either NCORE or NPAR independently, but to identify the most efficient balance for the selected number of cores.
+
+#### Additional recommendations for consistent scaling tests
+
+-	Use the LOOP+ timing reported in the OUTCAR to compare runs. Set NELM (e.g. NELM = 15) to limit the number of electronic steps and reduce the test time.
+-	Set NBANDS explicitly in the INCAR and use the same value for every test. Choose a value that is compatible with all tested NPAR values, so that VASP does not silently increase NBANDS for some configurations.
+-	Use the same initial conditions, input files, number of electronic or ionic steps, and convergence settings for all tests.
+-	Always explicitly select the same Slurm partition for every test: `#SBATCH --partition=<partition>`
+-	When supported by the cluster, request the nodes that are close together in the network topology: `#SBATCH --switches=1`, so that communication between nodes only passes 1 network switch to ensure comparable inter-node communication conditions.
+- If a test does not use all cores on each allocated node, request the required number of nodes explicitly rather than using `--exclusive`. Exclusive allocation can provide more memory per MPI rank and therefore make comparisons unfair. Use `--exclusive` only when exclusive-node access is also representative of the intended production configuration.
+
 
 #### EXAMPLE 1
 
-*An example is shown in the figures. An SCF calculation was performed on a GaAs supercell on the UAntwerpen Tier-2 Vaughan Zen3 partition. In this case, NBANDS = 256 is chosen because it can nicely be divided by different NPAR values. The number of irreducible k-points = 20 because of the symmetry of the system. This is a relatively small system with enough k-points, so the first approach is followed. As a compute unit the full node with 64 cores is chosen. Possible values for KPAR are a divisor of #k-points and of the number of cores: KPAR = {1,2,4}. Possible values of NCORE are a divisor of #cores/KPAR and NPAR(=#cores/KPAR/NCORE) is a divisor of NBANDS: NCORE = {1,2,4,8,16(,32(,64))}, depending on KPAR.*
+*An example is shown in the figures. An SCF calculation was performed on a GaAs supercell on the UAntwerpen Tier-2 Vaughan Zen3 partition. In this case, NBANDS = 256 is chosen because it can nicely be divided by different NPAR values. The number of irreducible k-points = 20 because of the symmetry of the system. This is a relatively small system with enough k-points, so the first approach is followed. The compute unit is chosen as the full node with 64 cores. Possible values for KPAR are a divisor of #k-points and of the number of cores: KPAR = {1,2,4}. Possible values of NCORE are a divisor of #cores/KPAR and NPAR(=#cores/KPAR/NCORE) is a divisor of NBANDS: NCORE = {1,2,4,8,16(,32(,64))}, depending on KPAR.*
 
 *According to the first figure, the ideal values on 1 compute unit (64 cores) are KPAR=4 and NCORE=8. It should not surprise you that NCORE is equal to the number of cores in the NUMA domain.*
 
 ![GaAs1node](/figures/GaAs1node.png)
 
-*The next two graphs show the combination of steps 1, 2 and 3: the green datapoint is the baseline on 1 core, the most ideal NCORE and KPAR-per-computeunit (written as KPAR/node, it reflects the number of KPAR groups assigned to each compute unit) combination yields the orange datapoints. The blue datapoints are always less efficient, as expected from the behavior on 1 node, but they are compatible with node-counts 2 and 10.*
+*The next two graphs show the combination of steps 1, 2 and 3: the green datapoint is the baseline on 1 core, the orange datapoints are associated with most ideal NCORE and KPAR-per-compute-unit (written as KPAR/node: it reflects the number of KPAR groups assigned to each compute unit). The blue datapoints are always less efficient, as expected from the behavior on 1 node, but they are compatible with node-counts 2 and 10.*
   
 ![GaAs-timing](/figures/GaAs-timing.png)
 ![GaAs-efficiency](/figures/GaAs-efficiency.png)
@@ -144,7 +222,7 @@ Other essential tips to **make sure your tests are consistent**:
 
 #### EXAMPLE 2
 
-*Let’s now consider a  large system NaCl with 512 atoms. Such a large supercell requires only 1 k-point, so the gamma-point only VASP executable is used: vasp_gam, which is faster and requires less memory.  An SCF calculation was performed on the UAntwerpen Tier-2 Vaughan Zen3 partition. In this case, there are 2046 valence electrons, therefore NBANDS = 1536 is chosen. Possible values of NCORE are a divisor of #cores, and NPAR(=#cores /NCORE) is a divisor of NBANDS: NCORE = {1,2,4,8,16,32,64}.*
+*Let’s now consider a  large system NaCl with 512 atoms. Such a large supercell requires only 1 k-point, so the gamma-point only VASP executable is used: vasp_gam, which is faster and requires less memory. An SCF calculation was performed on the UAntwerpen Tier-2 Vaughan Zen3 partition. In this case, there are 2046 valence electrons, therefore NBANDS = 1536 is chosen. Possible values of NCORE are a divisor of #cores, and NPAR(=#cores /NCORE) is a divisor of NBANDS: NCORE = {1,2,4,8,16,32,64}.*
 
 *The following graphs show the results of the benchmark using all possible NCORE values (starting from 1 full node). For a Tier1 application, these are many unnecessary calculations, but the graphs nicely illustrate how the ideal NCORE value changes with the number of nodes used.*
 

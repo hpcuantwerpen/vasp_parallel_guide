@@ -129,18 +129,18 @@ Other essential tips to **make sure your tests are consistent**:
 
 #### EXAMPLE 1
 
-*An example is shown in the figures. An SCF calculation was performed on a GaAs supercell on the UAntwerpen Tier-2 Vaughan Zen3 partition. In this case, NBANDS = 256 is chosen because it can nicely be divided by different NPAR values. The number of irreducible k-points = 20 because of the symmetry of the system. This is a relatively small system with enough k-points, so the first approach is followed. Possible values for KPAR are a divisor of #k-points and of the number of cores: KPAR = {1,2,4}. Possible values of NCORE are a divisor of #cores/KPAR and NPAR(=#cores/KPAR/NCORE) is a divisor of NBANDS: NCORE = {1,2,4,8,16(,32(,64))}, depending on KPAR.*
+*An example is shown in the figures. An SCF calculation was performed on a GaAs supercell on the UAntwerpen Tier-2 Vaughan Zen3 partition. In this case, NBANDS = 256 is chosen because it can nicely be divided by different NPAR values. The number of irreducible k-points = 20 because of the symmetry of the system. This is a relatively small system with enough k-points, so the first approach is followed. As a compute unit the full node with 64 cores is chosen. Possible values for KPAR are a divisor of #k-points and of the number of cores: KPAR = {1,2,4}. Possible values of NCORE are a divisor of #cores/KPAR and NPAR(=#cores/KPAR/NCORE) is a divisor of NBANDS: NCORE = {1,2,4,8,16(,32(,64))}, depending on KPAR.*
 
-*According to the first figure, the ideal values on 1 node (64 cores) are KPAR=4 and NCORE=8. It should not surprise you that NCORE is equal to the number of cores in the NUMA domain.*
+*According to the first figure, the ideal values on 1 compute unit (64 cores) are KPAR=4 and NCORE=8. It should not surprise you that NCORE is equal to the number of cores in the NUMA domain.*
 
 ![GaAs1node](/figures/GaAs1node.png)
 
-*The next two graphs show the combination of steps 1, 2 and 3: the green datapoint is the baseline on 1 core, the most ideal NCORE and KPAR/node combination yields the orange datapoints. The blue datapoints are always less efficient, as expected from the behavior on 1 node, but they are compatible with node-counts 2 and 10.*
+*The next two graphs show the combination of steps 1, 2 and 3: the green datapoint is the baseline on 1 core, the most ideal NCORE and KPAR-per-computeunit (written as KPAR/node, it reflects the number of KPAR groups assigned to each compute unit) combination yields the orange datapoints. The blue datapoints are always less efficient, as expected from the behavior on 1 node, but they are compatible with node-counts 2 and 10.*
   
 ![GaAs-timing](/figures/GaAs-timing.png)
 ![GaAs-efficiency](/figures/GaAs-efficiency.png)
  
-*In this case one should opt to use 1 node, with KPAR=4, NCORE=8 for the production runs. This yields an efficiency of 87% compared to the baseline. 2 Nodes, with KPAR=4, NCORE=8 has an efficiency of 77% and although the time-to-solution would be around 40% faster, the energy-to-solution is higher (it would use 13% more resources), which is not worth it in this case, as the total time for a relaxation calculation will be less than an hour anyway.*
+*In this case one should opt to use 1 node, with KPAR=4, NCORE=8 for the production runs. This yields an efficiency of 87% compared to the baseline. 2 Nodes, with KPAR=4, NCORE=8 has an efficiency of 77% and although the time-to-solution would be around 40% faster, the energy-to-solution is higher (it would use 13% more core-hours), which is not worth it in this case, as the total time for a relaxation calculation will be less than an hour anyway.*
 
 #### EXAMPLE 2
 
@@ -166,9 +166,9 @@ Other interesting reads:
 
 ## VASP + OpenMP
 
-An OpenMP build becomes interesting when your parallelization is limited by memory constraints. One of the levels of parallelization is replaced by multi-threading instead of multi-processing (MPI tasks). At this parallelization level, the cores share access to the same memory, reducing the number of copies of data in the memory.
+An OpenMP build becomes interesting when your parallelization is limited by memory constraints. These constraints can be either due to memory capacity (the total RAM available) or memory bandwidth (the rate at which data can move to the CPU). In the OpenMP build, one of the levels of parallelization is replaced by multi-threading instead of multi-processing (MPI tasks). At this parallelization level, the cores share access to the same memory, reducing the number of copies of data in the memory.
 
-> #### How do I know if my calculation is memory-bound?
+> #### How do I know if my calculation is bound by the memory capacity?
 >
 > Memory usage estimation in VASP is quite tricky. The complex parallelization and data distribution, as well as optimizations specific to certain algorithms (and frankly lack of documentation), make it near impossible to properly estimate memory usage. Instead, it is better to recognize out-of-memory issues and understand which parameters affect it and can be reduced to remedy your calculation.
 >
@@ -191,7 +191,9 @@ An OpenMP build becomes interesting when your parallelization is limited by memo
 >
 > #### Parameters influencing memory usage
 >
-> The VASP wiki offers a formula for estimating how much memory one needs, however this information is outdated and does not account for parallel usage [VASP wiki](https://www.vasp.at/wiki/index.php/Memory_requirements). Nonetheless it shows the most important parameters responsible for memory use. First, storage of wavefunctions is proportional to the number of (irreducible) k-points NKDIM, the number of bands NBANDS and the number of plane waves NPLWV. Secondly, large arrays such as the charge density, local potentials, etc.… are stored, on the (fine) FFT grid. The necessary memory is proportional to the dimensions of this grid: NGXF, NGYF and NGZF. 
+> The VASP wiki offers a formula for estimating how much memory one needs, however this information is outdated and does not account for parallel usage [VASP wiki](https://www.vasp.at/wiki/index.php/Memory_requirements). Nonetheless it shows the most important parameters responsible for memory use.
+> - First, storage of wavefunctions is proportional to the number of (irreducible) k-points NKDIM, the number of bands NBANDS and the number of plane waves NPLWV.
+> - Secondly, large arrays such as the charge density, local potentials, etc.… are stored, on the (fine) FFT grid. The necessary memory is proportional to the dimensions of this grid: NGXF, NGYF and NGZF. 
 >
 > Parallelization has a large impact on the memory requirements, especially the KPAR parameter. When you double both KPAR and the number of tasks, you double the required memory, i.e. the mem-per-task remains the same. Doubling KPAR while decreasing NPAR or NCORE increases the mem-per-task. When you double either NPAR or NCORE and the number of tasks, the total memory requirement is still increased, but the mem-per-task is reduced. Increasing NPAR while decreasing NCORE has no impact on the memory needs.
 > 
@@ -200,12 +202,13 @@ An OpenMP build becomes interesting when your parallelization is limited by memo
 >   `total amount of memory used by VASP MPI-rank0\s+(\S+)\. kBytes`
 > -	MEM_max: at the end of the calculation, VASP reports how much the rank with the largest memory use (of all the arrays the program keeps track of) used:
 >   `Maximum memory used \(kb\):\s+(\S+)\.`
-> -	RSS_ave: the resident set size averaged per task according to slurm:
+> -	RSS_ave: the resident set size averaged over all tasks of the selected job (step), according to slurm. Likewise, RSS_max is the maximum resident memory among all tasks in the job step:
 >   `sacct -o AveRSS,MaxRSS -j <jobid>`
 > ![memory](/figures/memory.png)
+> *The data suggest that changing NCORE or NPAR at fixed KPAR has a comparatively small effect on the reported memory per task, whereas increasing KPAR increases the memory footprint.*
 > 
 
-> #### Memory bandwidth 
+> #### How to recognize memory bandwidth-limited calculations?
 >
 > On nodes with high core counts (> 64) it is reported that memory bandwidth and cache size can limit parallel efficiency [VASP wiki](https://vasp.at/wiki/Combining_MPI_and_OpenMP). This effect is highly dependent on the node’s architecture, the parallelization parameters and the problem statement. 
 >
@@ -214,7 +217,7 @@ An OpenMP build becomes interesting when your parallelization is limited by memo
 >
 > The hybrid MPI/OpenMP version of VASP could alleviate the problems due to limitations of the available memory or memory bandwidth. Contact HPC user support if there is not yet a hybrid VASP build available.
 
-The hybrid MPI/OpenMP version of VASP still parallelizes over the k-points (**KPAR**) and electronic bands (**NPAR**) with MPI, but the work on a single band (‘Bloch orbital’) -which involves the FFTs- is spread over `$OMP_NUM_THREADS` threads instead of NCORE tasks.  Think of OMP_NUM_THREADS as essentially equal to NCORE in functionality. This means that NCORE in the INCAR file is ignored and set to 1 when you start VASP with more than 1 OpenMP thread. Because of the similarity of the parallelization to the pure-MPI version of VASP, the **strategy for the scaling tests explained before remains valid**.
+The hybrid MPI/OpenMP version of VASP still parallelizes over the k-points (**KPAR**) and electronic bands (**NPAR**) with MPI, but the work on a single band (‘Bloch orbital’) -which involves the FFTs- is spread over `$OMP_NUM_THREADS` threads instead of NCORE tasks.  Think of OMP_NUM_THREADS as essentially equal to NCORE in functionality. This means that NCORE in the INCAR file is ignored and set to 1 when you start VASP with more than 1 OpenMP thread. Because of the similarity of the parallelization to the pure-MPI version of VASP, the **strategy for the scaling tests explained before remains valid**, but the parameter space changes: OMP_NUM_THREADS must now be tested in addition to KPAR and NPAR.
 
 To start VASP with multiple OpenMP threads, you need to slightly adjust your job-script:
 
@@ -239,7 +242,7 @@ VASP offers two ports for GPUs: OpenACC (for Nvidia GPUs) and, more recently, Op
 
 ### PARALLELIZATION
 
-It is important to use exactly one MPI rank (‘task’) per GPU. OpenMP threads can be used to leverage more cores for the CPU-side code, allowing you to allocate and use all CPU cores available per GPU.
+Use exactly one MPI rank (‘task’) per GPU. OpenMP threads can be used to leverage more cores for the CPU-side code, allowing you to allocate and use all CPU cores available per GPU.
 
 Distributed parallel FFTs degrade performance when using VASP-GPU, therefore NCORE=1 will be set automatically. **KPAR, NPAR and NSIM** are the important parallelization parameters when running VASP on GPUs. If possible, choose `KPAR = #GPUs`. NCORE can’t be set, therefore NPAR is fixed by the choice of KPAR and the number of tasks. 
 
@@ -247,11 +250,11 @@ Default NSIM values are good for CPU-only runs, but for GPU runs they must be tu
 
 ### SCALING TESTS
 
-Because GPU nodes are much more expensive than CPU nodes, you will need to prove that your use case properly benefits from GPU resources. This means that you first perform baseline tests with 1 full CPU node.
+Because GPU nodes are much more expensive than CPU nodes, you will need to prove that your use case properly benefits from GPU resources. Such a benefit may mean a shorter time-to-solution, energy-to-solution, higher throughput or a combination of these metrics. Therefore, you first have to perform baseline tests with 1 compute unit. The size of this compute unit is a benchmarking choice: it could be a full CPU node, the number of CPU cores available per GPU, or 1/x of a CPU node with x the number of GPUs per GPU node.
 
-1.	Investigate all KPAR, NPAR/NCORE combinations on 1 full CPU node to find your actual baseline.
+1.	Investigate all KPAR, NPAR/NCORE combinations on 1 compute unit to find your actual baseline.
 2.	Find the optimal value for NSIM using 1 GPU with KPAR=1=NPAR. 
-3.	Scale up the number of GPU’s using the largest KPAR value possible (so either KPAR=#GPUS or lower so the KPAR remains a divisor of both #k-points and #tasks) and the optimal value of NSIM.
+3.	Scale up the number of GPU’s using the largest KPAR value possible (remember that KPAR may be limited by the number of tasks and irreducible k-points, and by memory constraints) and the optimal value of NSIM.
 
 #### EXAMPLE [Special thanks to Selma Mayda for sharing her benchmark results]
 
@@ -268,7 +271,7 @@ Because GPU nodes are much more expensive than CPU nodes, you will need to prove
 >
 > Upon completing either a fast ML prediction or a full DFT step, VASP updates the atomic position and starts the next ionic step.
 >
-> Because this benchmark starts from scratch, the execution time is heavily dominated by the full DFT steps and potential retraining. In a production training run (ML_MODE=train), the prediction steps will become more prevalent as training goes on. In an actual production run (ML_MODE=run), which often simulates much larger supercells than those used during training, there will only be the prediction step, hence production runs require a separate benchmark investigation.
+> Because this benchmark starts from scratch, the execution time is heavily dominated by the full DFT steps and potential retraining. In a production training run (ML_MODE=train, where additional *ab initio* calculations may be triggered for training), the prediction steps will become more prevalent as training goes on. In an actual production run (ML_MODE=run, where the field is already trained), which often simulates much larger supercells than those used during training, there will only be the prediction step. As a consequence, training benchmarks should not be used to predict production performance: production runs (i.e. without training) require a separate benchmark investigation.
 
 
 The system is a large CdS supercell with 432 atoms, and 1 k-point. The MD calculation was performed on the UAntwerpen Tier-2 Vaughan cluster (using both zen2 and ampere_gpu partitions).

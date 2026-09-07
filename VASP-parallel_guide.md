@@ -42,7 +42,7 @@ As KPAR divides the k-points of the calculation in groups, KPAR is optimally cho
 
 Good KPAR values are not only linked to the number of k-points, but also to the number of cores/nodes. Communication is affected by how the groups are divided over the nodes.
 
--	`KPAR = N * #nodes`: on each node there is an integer number of KPAR groups. Each KPAR-group is fully contained within a node, hence all communication between the NPAR-groups (and NCORE cores) remains within the node, which is faster.
+-	`KPAR = M * #nodes`: on each node there is an integer number of KPAR groups. Each KPAR-group is fully contained within a node, hence all communication between the NPAR-groups (and NCORE cores) remains within the node, which is faster.
 -	`KPAR < #nodes` might be necessary if there are very little k-points or due to memory constraints. In this case, make sure that on each node there is an integer number of NPAR-groups, so that communication within every NPAR-group does not span over nodes. (In other words: NCORE is a divisor of the number of cores per node.)
 
 **Maximizing KPAR is beneficial**. Use it to the maximal extent, even at the cost of using less cores per compute node. This is the most efficient parallelization option, but unfortunately in some cases (low #k-points) or algorithms (methods beyond regular DFT) it cannot be exploited.
@@ -120,7 +120,7 @@ This approach assumes that the calculation contains enough irreducible k-points 
 
 ##### Step 1: Establish a baseline
 
-Start with the smallest number of cores that is likely to run the calculation, with default parallelization parameters: `KPAR = 1`, `NCORE = 1`, `NPAR  = number of MPI ranks`.
+Start with the smallest number of cores that is likely to run the calculation, with default parallelization parameters: `KPAR = 1`, `NCORE = 1`, `NPAR = number of MPI ranks`.
 
 If the calculation fails because of insufficient memory or exceeds the wall-time limit, increase the number of cores, preferably by doubling it, until the calculation completes successfully.
 
@@ -139,8 +139,8 @@ The chosen compute unit should be larger than the baseline configuration and sho
 
 Run the calculation with all possible combinations of:
 -	KPAR, a divisor of both the number of irreducible k-points and available cores.
--	NCORE, a divisor of the number of bands and of `#cores/KAPR`
--	NPAR, determined from: `NPAR=#cores/(KPAR*NCORE)`
+-	NCORE, a divisor of the number of bands and of `#cores/KPAR`
+-	NPAR, determined from: `NPAR = #cores/(KPAR*NCORE)`
 
 The best configuration on this compute unit provides the values of NCORE and NPAR, as well as the most appropriate number of k-point groups per compute unit.
 
@@ -189,7 +189,7 @@ The best configuration on this compute unit provides ideal values of NCORE and N
 
 For calculations with few k-points, KPAR usually cannot be increased in proportion to the number of compute units. Once the maximum useful value of KPAR has been reached, additional cores are used mainly for band parallelization.
 
-Use the optimal NCORE value identified in Step 2 as the starting point. If KPAR and NCORE remain fixed, increasing the number of cores increases NPAR according to: `NPAR=#cores/(KPAR*NCORE)`.
+Use the optimal NCORE value identified in Step 2 as the starting point. If KPAR and NCORE remain fixed, increasing the number of cores increases NPAR according to: `NPAR = #cores/(KPAR*NCORE)`.
 However, increasing NPAR does not always improve performance. As NPAR increases, fewer bands are assigned to each parallel group. Once there are too few bands per group, communication and synchronization overhead may outweigh the benefit of using additional cores.
 
 For this reason, repeat the scaling tests with larger NCORE values when necessary. Increasing NCORE reduces NPAR and may provide a better balance between computation, memory distribution, and communication.
@@ -222,7 +222,7 @@ The objective is not to maximize either NCORE or NPAR independently, but to iden
 
 #### EXAMPLE 2
 
-*Let’s now consider a  large system NaCl with 512 atoms. Such a large supercell requires only 1 k-point, so the gamma-point only VASP executable is used: vasp_gam, which is faster and requires less memory. An SCF calculation was performed on the UAntwerpen Tier-2 Vaughan Zen3 partition. In this case, there are 2046 valence electrons, therefore NBANDS = 1536 is chosen. Possible values of NCORE are a divisor of #cores, and NPAR(=#cores /NCORE) is a divisor of NBANDS: NCORE = {1,2,4,8,16,32,64}.*
+*Let’s now consider a  large system NaCl with 512 atoms. Such a large supercell requires only 1 k-point, so the gamma-point only VASP executable is used: vasp_gam, which is faster and requires less memory. An SCF calculation was performed on the UAntwerpen Tier-2 Vaughan Zen3 partition. In this case, there are 2046 valence electrons, therefore NBANDS = 1536 is chosen. Possible values of NCORE are a divisor of #cores, and NPAR(=#cores/NCORE) is a divisor of NBANDS: NCORE = {1,2,4,8,16,32,64}.*
 
 *The following graphs show the results of the benchmark using all possible NCORE values (starting from 1 full node). For a Tier-1 application, these are many unnecessary calculations, but the graphs nicely illustrate how the ideal NCORE value changes with the number of nodes used.*
 
@@ -276,12 +276,12 @@ An OpenMP build becomes interesting when your parallelization is limited by memo
 > Parallelization has a large impact on the memory requirements, especially the KPAR parameter. When you double both KPAR and the number of tasks, you double the required memory, i.e. the mem-per-task remains the same. Doubling KPAR while decreasing NPAR or NCORE increases the mem-per-task. When you double either NPAR or NCORE and the number of tasks, the total memory requirement is still increased, but the mem-per-task is reduced. Increasing NPAR while decreasing NCORE has no impact on the memory needs.
 > 
 >The following table shows the results of memory use with different parallelization parameters in the GaAs system of example 1. The memory is reported in MiB per task and is obtained as followed:
-> -	MEM_est: VASP estimates beforehand, in the OUTCAR, how much rank 0 will use:
->   `grep -E "total amount of memory used by VASP MPI-rank0\s+(\S+)\. kBytes"`
-> -	MEM_max: at the end of the calculation, VASP reports how much the rank with the largest memory use (of all the arrays the program keeps track of) used:
->   `grep -E "Maximum memory used \(kb\):\s+(\S+)\."`
-> -	RSS_ave: the resident set size averaged over all tasks of the selected job (step), according to slurm. Likewise, RSS_max is the maximum resident memory among all tasks in the job step:
->   `sacct -o AveRSS,MaxRSS -j <jobid>`
+> -	MEM_est: VASP estimates beforehand, in the OUTCAR, how much rank 0 will use:  
+>   `$ grep -E "total amount of memory used by VASP MPI-rank0\s+(\S+)\. kBytes" OUTCAR`
+> -	MEM_max: at the end of the calculation, VASP reports how much the rank with the largest memory use (of all the arrays the program keeps track of) used:  
+>   `$ grep -E "Maximum memory used \(kb\):\s+(\S+)\." OUTCAR`
+> -	RSS_ave: the resident set size averaged over all tasks of the selected job (step), according to slurm. Likewise, RSS_max is the maximum resident memory among all tasks in the job step:  
+>   `$ sacct -o AveRSS,MaxRSS -j <jobid>`
 > ![memory](/figures/memory.png)
 > *The data suggest that changing NCORE or NPAR at fixed KPAR has a comparatively small effect on the reported memory per task, whereas increasing KPAR increases the memory footprint.*
 > 

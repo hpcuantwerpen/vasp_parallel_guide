@@ -7,7 +7,7 @@ This guide is intended to aid researchers in performing (and understanding) thei
 VASP makes use of distributed memory parallelization with MPI. As of VASP6 OpenMP (shared memory) is supported. More details are provided in a later [section](#vasp--openmp).
 
 ### Parameters
-The parameters that control parallelization in VASP are [VASP wiki](https://www.vasp.at/wiki/index.php/Category:Parallelization): 
+The parameters that control parallelization in VASP are [(VASP wiki)](https://www.vasp.at/wiki/index.php/Category:Parallelization): 
 - IMAGES
 - KPAR 
 - LPANE 
@@ -24,7 +24,7 @@ The first (or ‘outer’) level of parallelization that VASP offers is distribu
 
 The next level of parallelization is distribution of the work per k-point over electronic bands. NPAR defines the number of **bands** that are **calculated in parallel**. Closely intertwined with this parameter is NCORE, which are the number of cores that work together on a single band (the plane wave coefficients are distributed over these NCORE cores). In other words, each group of N cores is now further divided into NPAR groups of NCORE cores. Only one of the parameters NCORE and NPAR need to set, because the value of the other is imposed according to:
 
-```#total_cores = KPAR\*NPAR\*NCORE```
+```#total_cores = KPAR*NPAR*NCORE```
 
 Note that there is no memory distribution over KPAR: increasing this parameter will increase the required total memory. When increasing NCORE, the memory requirement per core is lowered, because the non-local projector functions can be distributed over NCORE cores. On the other hand, with an increased NCORE, more communication will be needed as accessing memory of another MPI task requires communication.
 
@@ -42,7 +42,7 @@ As KPAR divides the k-points of the calculation in groups, KPAR is optimally cho
 
 Good KPAR values are not only linked to the number of k-points, but also to the number of cores/nodes. Communication is affected by how the groups are divided over the nodes.
 
--	`KPAR = N #nodes`: on each node there is an integer number of KPAR groups. Each KPAR-group is fully contained within a node, hence all communication between the NPAR-groups (and NCORE cores) remains within the node, which is faster.
+-	`KPAR = N * #nodes`: on each node there is an integer number of KPAR groups. Each KPAR-group is fully contained within a node, hence all communication between the NPAR-groups (and NCORE cores) remains within the node, which is faster.
 -	`KPAR < #nodes` might be necessary if there are very little k-points or due to memory constraints. In this case, make sure that on each node there is an integer number of NPAR-groups, so that communication within every NPAR-group does not span over nodes. (In other words: NCORE is a divisor of the number of cores per node.)
 
 **Maximizing KPAR is beneficial**. Use it to the maximal extent, even at the cost of using less cores per compute node. This is the most efficient parallelization option, but unfortunately in some cases (low #k-points) or algorithms (methods beyond regular DFT) it cannot be exploited.
@@ -53,7 +53,7 @@ It is **not advised to maximize NPAR**, because then NCORE=1 or you may end up w
 
 > #### How do I know how many bands and irreducible k-points my system contains?
 >
-> An easy way to figure out the number of k-points, the default number of bands (which you could also calculate from the number of valence electrons for each atom) and other ‘dimension’ parameters, is to perform a **dry-run** [VASP wiki](https://www.vasp.at/wiki/index.php/Command-line_arguments):
+> An easy way to figure out the number of k-points, the default number of bands (which you could also calculate from the number of valence electrons for each atom) and other ‘dimension’ parameters, is to perform a **dry-run** [(VASP wiki)](https://www.vasp.at/wiki/index.php/Command-line_arguments):
 >
 > ```
 > $ vasp_std --dry-run
@@ -81,7 +81,7 @@ It is **not advised to maximize NPAR**, because then NCORE=1 or you may end up w
 
 To optimize the parallelization parameters, you should also keep the architecture of the compute nodes in mind. The bulk of the inter-process communication is due to the parallel FFT, which is between the NCORE cores. In the worst case, a group of NCORE cores is spread over multiple nodes, which deteriorates the performance massively. Furthermore, within a single node, multiple memory domains coexist as data access is generally not uniform in a modern computer: these domains are referred to as NUMA (Non-Uniform Memory Access) nodes. Access to a memory space handled by a NUMA node is faster than accessing the same data from another NUMA node, as the latter involves additional hops across interconnects.
 
-Let’s look at the architecture of the UA tier-2 Vaughan CPUs (both zen2 and zen3 AMD EPYC 7452 & 7543). Each node has 2 sockets (grey) hosting an AMD EPYC processor with 32 cores each, forming the first level of the memory hierarchy. Each socket consists of 4 NUMA nodes (light pink), each with 8 cores (black) and two memory controllers. 
+Let’s look at the architecture of the UAntwerpen tier-2 Vaughan CPUs (both zen2 and zen3 AMD EPYC 7452 & 7543). Each node has 2 sockets (grey) hosting an AMD EPYC processor with 32 cores each, forming the first level of the memory hierarchy. Each socket consists of 4 NUMA nodes (light pink), each with 8 cores (black) and two memory controllers. 
 
 ![NUMA](/figures/zen2architecture.png)
 
@@ -139,8 +139,8 @@ The chosen compute unit should be larger than the baseline configuration and sho
 
 Run the calculation with all possible combinations of:
 -	KPAR, a divisor of both the number of irreducible k-points and available cores.
--	NCORE, a divisor of the number of bands and of `N_cores/KAPR`
--	NPAR, determined from: `NPAR=N_cores/(KPAR×NCORE)`
+-	NCORE, a divisor of the number of bands and of `#cores/KAPR`
+-	NPAR, determined from: `NPAR=#cores/(KPAR*NCORE)`
 
 The best configuration on this compute unit provides the values of NCORE and NPAR, as well as the most appropriate number of k-point groups per compute unit.
 
@@ -189,7 +189,7 @@ The best configuration on this compute unit provides ideal values of NCORE and N
 
 For calculations with few k-points, KPAR usually cannot be increased in proportion to the number of compute units. Once the maximum useful value of KPAR has been reached, additional cores are used mainly for band parallelization.
 
-Use the optimal NCORE value identified in Step 2 as the starting point. If KPAR and NCORE remain fixed, increasing the number of cores increases NPAR according to: `NPAR=N_cores/(KPAR×NCORE)`.
+Use the optimal NCORE value identified in Step 2 as the starting point. If KPAR and NCORE remain fixed, increasing the number of cores increases NPAR according to: `NPAR=#cores/(KPAR*NCORE)`.
 However, increasing NPAR does not always improve performance. As NPAR increases, fewer bands are assigned to each parallel group. Once there are too few bands per group, communication and synchronization overhead may outweigh the benefit of using additional cores.
 
 For this reason, repeat the scaling tests with larger NCORE values when necessary. Increasing NCORE reduces NPAR and may provide a better balance between computation, memory distribution, and communication.
@@ -224,7 +224,7 @@ The objective is not to maximize either NCORE or NPAR independently, but to iden
 
 *Let’s now consider a  large system NaCl with 512 atoms. Such a large supercell requires only 1 k-point, so the gamma-point only VASP executable is used: vasp_gam, which is faster and requires less memory. An SCF calculation was performed on the UAntwerpen Tier-2 Vaughan Zen3 partition. In this case, there are 2046 valence electrons, therefore NBANDS = 1536 is chosen. Possible values of NCORE are a divisor of #cores, and NPAR(=#cores /NCORE) is a divisor of NBANDS: NCORE = {1,2,4,8,16,32,64}.*
 
-*The following graphs show the results of the benchmark using all possible NCORE values (starting from 1 full node). For a Tier1 application, these are many unnecessary calculations, but the graphs nicely illustrate how the ideal NCORE value changes with the number of nodes used.*
+*The following graphs show the results of the benchmark using all possible NCORE values (starting from 1 full node). For a Tier-1 application, these are many unnecessary calculations, but the graphs nicely illustrate how the ideal NCORE value changes with the number of nodes used.*
 
 ![NaCl-timing](/figures/NaCl-timing.png)
   
@@ -269,17 +269,17 @@ An OpenMP build becomes interesting when your parallelization is limited by memo
 >
 > #### Parameters influencing memory usage
 >
-> The VASP wiki offers a formula for estimating how much memory one needs, however this information is outdated and does not account for parallel usage [VASP wiki](https://www.vasp.at/wiki/index.php/Memory_requirements). Nonetheless it shows the most important parameters responsible for memory use.
+> The VASP wiki offers a formula for estimating how much memory one needs, however this information is outdated and does not account for parallel usage [(VASP wiki)](https://www.vasp.at/wiki/index.php/Memory_requirements). Nonetheless it shows the most important parameters responsible for memory use.
 > - First, storage of wavefunctions is proportional to the number of (irreducible) k-points NKDIM, the number of bands NBANDS and the number of plane waves NPLWV.
-> - Secondly, large arrays such as the charge density, local potentials, etc.… are stored, on the (fine) FFT grid. The necessary memory is proportional to the dimensions of this grid: NGXF, NGYF and NGZF. 
+> - Secondly, large arrays such as the charge density, local potentials, etc. are stored, on the (fine) FFT grid. The necessary memory is proportional to the dimensions of this grid: NGXF, NGYF and NGZF. 
 >
 > Parallelization has a large impact on the memory requirements, especially the KPAR parameter. When you double both KPAR and the number of tasks, you double the required memory, i.e. the mem-per-task remains the same. Doubling KPAR while decreasing NPAR or NCORE increases the mem-per-task. When you double either NPAR or NCORE and the number of tasks, the total memory requirement is still increased, but the mem-per-task is reduced. Increasing NPAR while decreasing NCORE has no impact on the memory needs.
 > 
 >The following table shows the results of memory use with different parallelization parameters in the GaAs system of example 1. The memory is reported in MiB per task and is obtained as followed:
 > -	MEM_est: VASP estimates beforehand, in the OUTCAR, how much rank 0 will use:
->   `total amount of memory used by VASP MPI-rank0\s+(\S+)\. kBytes`
+>   `grep -E "total amount of memory used by VASP MPI-rank0\s+(\S+)\. kBytes"`
 > -	MEM_max: at the end of the calculation, VASP reports how much the rank with the largest memory use (of all the arrays the program keeps track of) used:
->   `Maximum memory used \(kb\):\s+(\S+)\.`
+>   `grep -E "Maximum memory used \(kb\):\s+(\S+)\."`
 > -	RSS_ave: the resident set size averaged over all tasks of the selected job (step), according to slurm. Likewise, RSS_max is the maximum resident memory among all tasks in the job step:
 >   `sacct -o AveRSS,MaxRSS -j <jobid>`
 > ![memory](/figures/memory.png)
@@ -288,7 +288,7 @@ An OpenMP build becomes interesting when your parallelization is limited by memo
 
 > #### How to recognize memory bandwidth-limited calculations?
 >
-> On nodes with high core counts (> 64) it is reported that memory bandwidth and cache size can limit parallel efficiency [VASP wiki](https://vasp.at/wiki/Combining_MPI_and_OpenMP). This effect is highly dependent on the node’s architecture, the parallelization parameters and the problem statement. 
+> On nodes with high core counts (> 64) it is reported that memory bandwidth and cache size can limit parallel efficiency [(VASP wiki)](https://vasp.at/wiki/Combining_MPI_and_OpenMP). This effect is highly dependent on the node’s architecture, the parallelization parameters and the problem statement. 
 >
 > -	In the pure MPI version of VASP, do you experience a speed-up if you only use 75% (or even 50%) of the number of cores per node? Beware of task placement. 
 >   This indicates that memory bandwidth may be a limitation.
@@ -310,13 +310,13 @@ export OMP_STACKSIZE=512m	# VASP needs more (than the default) memory in the pri
 srun -n $SLURM_NTASKS -c $SLURM_CPUS_PER_TASK vasp-executable >> out
 ```
 
-[OpenMP in VASP: Threading and SIMD](https://doi.org/10.1002/qua.25851) 
+More info: [OpenMP in VASP: Threading and SIMD](https://doi.org/10.1002/qua.25851) 
 
 
 
 ## VASP-GPU
 
-VASP offers two ports for GPUs: OpenACC (for Nvidia GPUs) and, more recently, OpenMP (for AMD or Intel GPUs) [VASP wiki](https://www.vasp.at/wiki/index.php/OpenACC_GPU_port_of_VASP#Running_the_OpenACC_version). They are similarly structured regarding the parallelization. The main difference is that the OpenACC version has more features implemented for GPU, but your choice is restricted by the available hardware.
+VASP offers two ports for GPUs: OpenACC (for Nvidia GPUs) and, more recently, OpenMP (for AMD or Intel GPUs) [(VASP wiki)](https://www.vasp.at/wiki/index.php/OpenACC_GPU_port_of_VASP#Running_the_OpenACC_version). They are similarly structured regarding the parallelization. The main difference is that the OpenACC version has more features implemented for GPU, but your choice is restricted by the available hardware.
 
 ### PARALLELIZATION
 
